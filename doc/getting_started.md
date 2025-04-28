@@ -145,7 +145,7 @@ fn handle_poll_notification(notification: Notification,
        match notification.event {
          Event::Read => {
              // Try to read the data from the connection sock. Ignore the amount of bytes read.
-             let _ = try!(conn.reader.read(&mut conn.sock));
+             let _ = conn.reader.read(&mut conn.sock)?;
 
              // Iterate through all available complete messages. Note that this iterator is mutable
              // in a non-traditional sense. It returns each complete message only once and removes it
@@ -157,7 +157,7 @@ fn handle_poll_notification(notification: Notification,
          Event::Write => {
              // Attempt to write *all* existing data queued for writing. `None` as the second
              // parameter means no new data.
-             let _ = try!(conn.writer.write(&mut conn.sock, None));
+             let _ = conn.writer.write(&mut conn.sock, None)?;
          },
          Event::Both => {
              // Do a combination of the above clauses :)

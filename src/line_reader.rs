@@ -5,17 +5,19 @@ use std::str::{self, Utf8Error};
 struct ReaderBuf {
     vec: Vec<u8>,
     msg_start: usize,
-    write_loc: usize
+    write_loc: usize,
 }
 
 impl ReaderBuf {
     pub fn new(buffer_size: usize) -> ReaderBuf {
         let mut vec = Vec::with_capacity(buffer_size);
-        unsafe { vec.set_len(buffer_size); }
+        unsafe {
+            vec.set_len(buffer_size);
+        }
         ReaderBuf {
             vec: vec,
             msg_start: 0,
-            write_loc: 0
+            write_loc: 0,
         }
     }
 
@@ -45,7 +47,7 @@ impl ReaderBuf {
 
 /// An iterator over lines available from the current spot in the buffer
 pub struct Iter<'a> {
-    buf: &'a mut ReaderBuf
+    buf: &'a mut ReaderBuf,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -61,9 +63,9 @@ impl<'a> Iterator for Iter<'a> {
         match slice.iter().position(|&c| c == '\n' as u8) {
             Some(index) => {
                 self.buf.msg_start = self.buf.msg_start + index + 1;
-                Some(str::from_utf8(&slice[0..index+1]).map(|s| s.to_string()))
-            },
-            None => None
+                Some(str::from_utf8(&slice[0..index + 1]).map(|s| s.to_string()))
+            }
+            None => None,
         }
     }
 }
@@ -71,26 +73,24 @@ impl<'a> Iterator for Iter<'a> {
 /// Read and compose lines of text
 #[derive(Debug)]
 pub struct LineReader {
-    buf: ReaderBuf
+    buf: ReaderBuf,
 }
 
 impl LineReader {
     pub fn new(buffer_size: usize) -> LineReader {
         LineReader {
-            buf: ReaderBuf::new(buffer_size)
+            buf: ReaderBuf::new(buffer_size),
         }
     }
 
     pub fn read<T: Read>(&mut self, reader: &mut T) -> io::Result<usize> {
-        let bytes_read = try!(reader.read(&mut self.buf.vec[self.buf.write_loc..]));
+        let bytes_read = reader.read(&mut self.buf.vec[self.buf.write_loc..])?;
         self.buf.write_loc += bytes_read;
         Ok(bytes_read)
     }
 
     pub fn iter_mut(&mut self) -> Iter {
-        Iter {
-            buf: &mut self.buf
-        }
+        Iter { buf: &mut self.buf }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -98,12 +98,11 @@ impl LineReader {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use std::io::Cursor;
     use super::LineReader;
+    use std::io::Cursor;
 
     const TEXT: &'static str = "hello\nworld\nhow's\nit\ngoing?\n";
 
@@ -132,9 +131,11 @@ mod tests {
         assert_eq!(None, line_reader.iter_mut().next());
         assert_eq!(false, line_reader.is_empty());
         assert_eq!(1, line_reader.read(&mut Cursor::new("\n")).unwrap());
-        assert_eq!("ok\n".to_string(), line_reader.iter_mut().next().unwrap().unwrap());
+        assert_eq!(
+            "ok\n".to_string(),
+            line_reader.iter_mut().next().unwrap().unwrap()
+        );
         assert_eq!(None, line_reader.iter_mut().next());
         assert_eq!(true, line_reader.is_empty());
     }
-
 }

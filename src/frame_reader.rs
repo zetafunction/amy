@@ -1,19 +1,19 @@
 //! This reader composes frames of bytes started with a 4 byte frame header indicating the size of
 //! the buffer. An exact size buffer will be allocated once the 4 byte frame header is received.
 
-use std::io::{self, Read, Error, ErrorKind};
 use std::collections::VecDeque;
+use std::io::{self, Error, ErrorKind, Read};
 use std::mem;
 
 #[derive(Debug)]
 pub struct FrameReader {
-    frames: Frames
+    frames: Frames,
 }
 
 impl FrameReader {
     pub fn new(max_frame_size: u32) -> FrameReader {
         FrameReader {
-            frames: Frames::new(max_frame_size)
+            frames: Frames::new(max_frame_size),
         }
     }
 
@@ -23,13 +23,13 @@ impl FrameReader {
 
     pub fn iter_mut(&mut self) -> Iter {
         Iter {
-            frames: &mut self.frames
+            frames: &mut self.frames,
         }
     }
 }
 
 pub struct Iter<'a> {
-    frames: &'a mut Frames
+    frames: &'a mut Frames,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -47,7 +47,7 @@ struct Frames {
     header: [u8; 4],
     reading_header: bool,
     current: Vec<u8>,
-    completed_frames: VecDeque<Vec<u8>>
+    completed_frames: VecDeque<Vec<u8>>,
 }
 
 impl Frames {
@@ -58,7 +58,7 @@ impl Frames {
             header: [0; 4],
             reading_header: true,
             current: Vec::with_capacity(0),
-            completed_frames: VecDeque::new()
+            completed_frames: VecDeque::new(),
         }
     }
 
@@ -77,12 +77,12 @@ impl Frames {
                         return Err(Error::new(ErrorKind::UnexpectedEof, "Read 0 bytes"));
                     }
                     return Ok(total_bytes_read);
-                },
+                }
                 Ok(bytes_read) => {
                     total_bytes_read += bytes_read;
-                },
+                }
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(total_bytes_read),
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             }
         }
     }
@@ -97,25 +97,28 @@ impl Frames {
 
     // TODO: Return an error if size is greater than max_frame_size
     fn read_header<T: Read>(&mut self, reader: &mut T) -> io::Result<usize> {
-        let bytes_read = try!(reader.read(&mut self.header[self.bytes_read..]));
+        let bytes_read = reader.read(&mut self.header[self.bytes_read..])?;
         self.bytes_read += bytes_read;
         if self.bytes_read == 4 {
-           let len = unsafe { u32::from_be(mem::transmute(self.header)) };
-           self.bytes_read = 0;
-           self.reading_header = false;
-           self.current = Vec::with_capacity(len as usize);
-           unsafe { self.current.set_len(len as usize); }
+            let len = unsafe { u32::from_be(mem::transmute(self.header)) };
+            self.bytes_read = 0;
+            self.reading_header = false;
+            self.current = Vec::with_capacity(len as usize);
+            unsafe {
+                self.current.set_len(len as usize);
+            }
         }
         Ok(bytes_read)
     }
 
     fn read_value<T: Read>(&mut self, reader: &mut T) -> io::Result<usize> {
-        let bytes_read = try!(reader.read(&mut self.current[self.bytes_read..]));
+        let bytes_read = reader.read(&mut self.current[self.bytes_read..])?;
         self.bytes_read += bytes_read;
         if self.bytes_read == self.current.len() {
-           self.completed_frames.push_back(mem::replace(&mut self.current, Vec::new()));
-           self.bytes_read = 0;
-           self.reading_header = true;
+            self.completed_frames
+                .push_back(mem::replace(&mut self.current, Vec::new()));
+            self.bytes_read = 0;
+            self.reading_header = true;
         }
         Ok(bytes_read)
     }
@@ -123,11 +126,11 @@ impl Frames {
 
 #[cfg(test)]
 mod tests {
-    use std::{mem, thread};
+    use super::FrameReader;
     use std::io::Cursor;
     use std::io::Write;
     use std::net::{TcpListener, TcpStream};
-    use super::FrameReader;
+    use std::{mem, thread};
 
     #[test]
     fn partial_and_complete_reads() {
@@ -193,6 +196,5 @@ mod tests {
         // Name it with a preceding underscore so we don't get an unused variable warning
         let _sock = TcpStream::connect(IP).unwrap();
         h.join().unwrap();
-
     }
 }

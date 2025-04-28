@@ -1,13 +1,12 @@
+use libc::{self, c_int, time_t, timespec, CLOCK_MONOTONIC, O_CLOEXEC, O_NONBLOCK};
+use nix::errno::Errno;
+use nix::{Error, Result};
+use std::mem;
+use std::os::unix::io::{IntoRawFd, RawFd};
 /// An interface to timerfd in linux
 ///
 /// This interface is specific to the use of Amy and not general enough to be in its own crate.
-
 use std::ptr;
-use std::mem;
-use std::os::unix::io::{IntoRawFd, RawFd};
-use nix::{Error, Result};
-use nix::errno::Errno;
-use libc::{self, c_int, CLOCK_MONOTONIC, O_NONBLOCK, O_CLOEXEC, timespec, time_t};
 
 static TFD_NONBLOCK: c_int = O_NONBLOCK;
 static TFD_CLOEXEC: c_int = O_CLOEXEC;
@@ -18,20 +17,22 @@ mod ffi {
     #[repr(C)]
     pub struct Itimerspec {
         pub it_interval: timespec,
-        pub it_value: timespec
+        pub it_value: timespec,
     }
 
-    extern {
+    extern "C" {
         pub fn timerfd_create(clockid: c_int, flags: c_int) -> c_int;
-        pub fn timerfd_settime(fd: c_int,
-                               flags: c_int,
-                               new: *const Itimerspec,
-                               old: *mut Itimerspec) -> c_int;
+        pub fn timerfd_settime(
+            fd: c_int,
+            flags: c_int,
+            new: *const Itimerspec,
+            old: *mut Itimerspec,
+        ) -> c_int;
     }
 }
 
 pub struct TimerFd {
-    fd: c_int
+    fd: c_int,
 }
 
 impl TimerFd {
@@ -40,12 +41,11 @@ impl TimerFd {
         if fd < 0 {
             return Err(Error::Sys(Errno::last()));
         }
-        let timer_fd = TimerFd {fd: fd};
-        try!(arm_timer(fd, timeout_in_ms, recurring));
+        let timer_fd = TimerFd { fd: fd };
+        arm_timer(fd, timeout_in_ms, recurring)?;
 
         Ok(timer_fd)
     }
-
 }
 
 impl Drop for TimerFd {
@@ -73,12 +73,12 @@ fn arm_timer(fd: c_int, timeout: usize, recurring: bool) -> Result<()> {
     } else {
         timespec {
             tv_sec: 0,
-            tv_nsec: 0
+            tv_nsec: 0,
         }
     };
     let itimerspec = ffi::Itimerspec {
         it_interval: it_interval,
-        it_value: it_value
+        it_value: it_value,
     };
 
     let res = unsafe { ffi::timerfd_settime(fd, 0, &itimerspec, ptr::null_mut()) };
@@ -92,6 +92,6 @@ fn arm_timer(fd: c_int, timeout: usize, recurring: bool) -> Result<()> {
 fn ms_to_timespec(timeout_in_ms: time_t) -> timespec {
     timespec {
         tv_sec: timeout_in_ms / 1000,
-        tv_nsec: (timeout_in_ms % 1000) * 1000 * 1000
+        tv_nsec: (timeout_in_ms % 1000) * 1000 * 1000,
     }
 }
