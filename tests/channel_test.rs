@@ -1,8 +1,7 @@
 /// Test Channels where the receiver is pollable
-
 extern crate amy;
 
-use amy::{Poller, Event};
+use amy::{Event, Poller};
 
 #[test]
 fn send_wakes_poller() {
@@ -165,7 +164,7 @@ fn simple_sync_channel_test() {
     assert_eq!(Event::Read, notifications[0].event);
 
     // Send should fail because buffer is of size 1
-    tx.try_send("b").is_err();
+    assert!(tx.try_send("b").is_err());
 
     assert_eq!("a", rx.try_recv().unwrap());
     assert!(rx.try_recv().is_err());
