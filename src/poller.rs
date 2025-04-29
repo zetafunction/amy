@@ -31,7 +31,7 @@ impl Poller {
         let inner = KernelPoller::new()?;
         Ok(Poller {
             registrar: Registrar::new(inner.get_registrar()),
-            inner: inner,
+            inner,
         })
     }
 

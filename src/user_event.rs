@@ -94,11 +94,11 @@ impl UserEvent {
     }
 
     pub fn clear(&self) -> Result<()> {
-        self.registrar.clear_user_event(&self)
+        self.registrar.clear_user_event(self)
     }
 
     pub fn trigger(&self) -> Result<()> {
-        self.registrar.trigger_user_event(&self)
+        self.registrar.trigger_user_event(self)
     }
 
     pub fn deregister(&self) -> Result<()> {

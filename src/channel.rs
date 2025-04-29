@@ -20,22 +20,18 @@ use crate::kqueue::KernelRegistrar;
 pub fn channel<T>(registrar: &mut KernelRegistrar) -> io::Result<(Sender<T>, Receiver<T>)> {
     let (tx, rx) = mpsc::channel();
     let pending = Arc::new(AtomicUsize::new(0));
-    let user_event = Arc::new(
-        registrar
-            .register_user_event()
-            .map_err(|e| io::Error::from(e))?,
-    );
+    let user_event = Arc::new(registrar.register_user_event()?);
 
     let tx = Sender {
-        tx: tx,
+        tx,
         user_event: user_event.clone(),
         pending: pending.clone(),
     };
 
     let rx = Receiver {
-        rx: rx,
-        user_event: user_event,
-        pending: pending,
+        rx,
+        user_event,
+        pending,
     };
 
     Ok((tx, rx))
@@ -47,22 +43,18 @@ pub fn sync_channel<T>(
 ) -> io::Result<(SyncSender<T>, Receiver<T>)> {
     let (tx, rx) = mpsc::sync_channel(bound);
     let pending = Arc::new(AtomicUsize::new(0));
-    let user_event = Arc::new(
-        registrar
-            .register_user_event()
-            .map_err(|e| io::Error::from(e))?,
-    );
+    let user_event = Arc::new(registrar.register_user_event()?);
 
     let tx = SyncSender {
-        tx: tx,
+        tx,
         user_event: user_event.clone(),
         pending: pending.clone(),
     };
 
     let rx = Receiver {
-        rx: rx,
-        user_event: user_event,
-        pending: pending,
+        rx,
+        user_event,
+        pending,
     };
 
     Ok((tx, rx))
@@ -157,7 +149,7 @@ impl<T> Receiver<T> {
         }
 
         self.pending.fetch_sub(1, Ordering::SeqCst);
-        self.rx.try_recv().map_err(|e| ChannelError::from(e))
+        self.rx.try_recv().map_err(ChannelError::from)
     }
 
     pub fn get_id(&self) -> usize {

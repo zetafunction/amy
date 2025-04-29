@@ -7,16 +7,10 @@ pub enum Event {
 
 impl Event {
     pub fn readable(&self) -> bool {
-        match *self {
-            Event::Read | Event::Both => true,
-            _ => false,
-        }
+        matches!(self, Event::Read | Event::Both)
     }
 
     pub fn writable(&self) -> bool {
-        match *self {
-            Event::Write | Event::Both => true,
-            _ => false,
-        }
+        matches!(self, Event::Write | Event::Both)
     }
 }

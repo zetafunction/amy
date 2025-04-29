@@ -1,6 +1,5 @@
 use std::collections::LinkedList as List;
 use std::io::{self, Write};
-use std::mem;
 
 /// Abstraction for writing frame buffered data to non-blocking sockets.
 ///
@@ -110,10 +109,7 @@ impl FrameWriter {
 
 /// Convert a u32 in native order to a 4 byte vec in big endian
 pub fn u32_to_vec(n: u32) -> Vec<u8> {
-    unsafe {
-        let bytes: [u8; 4] = mem::transmute(n.to_be());
-        bytes.to_vec()
-    }
+    n.to_be_bytes().to_vec()
 }
 
 #[cfg(test)]

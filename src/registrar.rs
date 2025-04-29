@@ -32,7 +32,7 @@ impl Registrar {
     /// This method is public only so it can be used directly by the Poller. Do not Use it.
     #[doc(hidden)]
     pub fn new(inner: KernelRegistrar) -> Registrar {
-        Registrar { inner: inner }
+        Registrar { inner }
     }
 
     /// Register a socket for a given event type, with a Poller and return it's unique ID

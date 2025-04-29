@@ -72,7 +72,7 @@ impl KernelPoller {
                 event: event.clone(),
             };
 
-            let mut notification = self
+            let notification = self
                 .notifications
                 .entry(e.ident() as RawFd)
                 .or_insert(new_notification);
@@ -132,7 +132,7 @@ impl KernelRegistrar {
         let changes = vec![make_user_event(id)];
         kevent(self.kqueue, &changes, &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(UserEvent {
-            id: id,
+            id,
             registrar: self.clone(),
         })
     }
@@ -141,21 +141,21 @@ impl KernelRegistrar {
         let mut e = make_user_event(event.get_id());
         set_flags(&mut e, EventFlag::EV_ENABLE);
         set_fflags(&mut e, FilterFlag::NOTE_TRIGGER);
-        kevent(self.kqueue, &vec![e], &mut [], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &[e], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
     pub fn clear_user_event(&self, event: &UserEvent) -> Result<()> {
         let mut user_event = make_user_event(event.get_id());
         set_flags(&mut user_event, EventFlag::EV_DISABLE);
-        kevent(self.kqueue, &vec![user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &[user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
     pub fn deregister_user_event(&self, event_id: usize) -> Result<()> {
         let mut user_event = make_user_event(event_id);
         set_flags(&mut user_event, EventFlag::EV_DELETE);
-        kevent(self.kqueue, &vec![user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &[user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
@@ -170,7 +170,7 @@ impl KernelRegistrar {
     pub fn cancel_timeout(&self, timer_id: usize) -> Result<()> {
         let mut e = make_timer(timer_id, 0, false);
         set_flags(&mut e, EventFlag::EV_DELETE);
-        kevent(self.kqueue, &vec![e], &mut [], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &[e], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
@@ -267,13 +267,12 @@ fn make_timer(id: usize, timeout: usize, recurring: bool) -> KEvent {
     if !recurring {
         flags |= EventFlag::EV_ONESHOT;
     }
-    let ev = KEvent::new(
+    KEvent::new(
         id as uintptr_t,
         EventFilter::EVFILT_TIMER,
         flags,
         FilterFlag::empty(), // timeouts are in ms by default
         timeout as intptr_t,
         id as UserData,
-    );
-    ev
+    )
 }

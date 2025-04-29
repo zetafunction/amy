@@ -1,6 +1,5 @@
 use std::os::unix::io::{AsRawFd, RawFd};
 
-use libc;
 use std::io::{Error, Result};
 use std::mem;
 

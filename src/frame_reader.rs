@@ -53,7 +53,7 @@ struct Frames {
 impl Frames {
     pub fn new(max_frame_size: u32) -> Frames {
         Frames {
-            max_frame_size: max_frame_size,
+            max_frame_size,
             bytes_read: 0,
             header: [0; 4],
             reading_header: true,
@@ -100,7 +100,7 @@ impl Frames {
         let bytes_read = reader.read(&mut self.header[self.bytes_read..])?;
         self.bytes_read += bytes_read;
         if self.bytes_read == 4 {
-            let len = unsafe { u32::from_be(mem::transmute(self.header)) };
+            let len = u32::from_be_bytes(self.header);
             self.bytes_read = 0;
             self.reading_header = false;
             self.current = Vec::with_capacity(len as usize);
@@ -116,7 +116,7 @@ impl Frames {
         self.bytes_read += bytes_read;
         if self.bytes_read == self.current.len() {
             self.completed_frames
-                .push_back(mem::replace(&mut self.current, Vec::new()));
+                .push_back(mem::take(&mut self.current));
             self.bytes_read = 0;
             self.reading_header = true;
         }

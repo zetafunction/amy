@@ -15,7 +15,7 @@ impl ReaderBuf {
             vec.set_len(buffer_size);
         }
         ReaderBuf {
-            vec: vec,
+            vec,
             msg_start: 0,
             write_loc: 0,
         }
@@ -34,7 +34,7 @@ impl ReaderBuf {
         let mut write_index = 0;
         for i in self.msg_start..self.write_loc {
             self.vec[write_index] = self.vec[i];
-            write_index = write_index + 1;
+            write_index += 1;
         }
         self.write_loc = write_index;
         self.msg_start = 0;
@@ -60,7 +60,7 @@ impl<'a> Iterator for Iter<'a> {
         }
 
         let slice = &self.buf.vec[self.buf.msg_start..self.buf.write_loc];
-        match slice.iter().position(|&c| c == '\n' as u8) {
+        match slice.iter().position(|&c| c == b'\n') {
             Some(index) => {
                 self.buf.msg_start = self.buf.msg_start + index + 1;
                 Some(str::from_utf8(&slice[0..index + 1]).map(|s| s.to_string()))
