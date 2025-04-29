@@ -7,7 +7,6 @@ use user_event::UserEvent;
 use epoll::KernelRegistrar;
 
 #[cfg(any(
-    target_os = "bitrig",
     target_os = "dragonfly",
     target_os = "freebsd",
     target_os = "ios",

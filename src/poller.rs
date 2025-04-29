@@ -7,7 +7,6 @@ use registrar::Registrar;
 use epoll::KernelPoller;
 
 #[cfg(any(
-    target_os = "bitrig",
     target_os = "dragonfly",
     target_os = "freebsd",
     target_os = "ios",
