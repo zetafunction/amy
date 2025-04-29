@@ -71,7 +71,7 @@ impl AsRawFd for UserEvent {
 /* NON LINUX SYSTEMS */
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub use kqueue::KernelRegistrar;
+use crate::kqueue::KernelRegistrar;
 
 /// An opaque handle to a user level event.
 ///

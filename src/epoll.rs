@@ -2,28 +2,30 @@
 use std::collections::HashMap;
 #[cfg(not(feature = "no_timerfd"))]
 use std::os::unix::io::IntoRawFd;
-#[cfg(not(feature = "no_timerfd"))]
-use timer::Timer;
-#[cfg(not(feature = "no_timerfd"))]
-use timerfd::TimerFd;
 
-use channel::{channel, Receiver, Sender};
-use event::Event;
+use crate::channel::{channel, Receiver, Sender};
+use crate::event::Event;
+use crate::nix_err_to_io_err;
+use crate::notification::Notification;
+use crate::user_event::UserEvent;
+
+#[cfg(not(feature = "no_timerfd"))]
+use crate::timer::Timer;
+#[cfg(not(feature = "no_timerfd"))]
+use crate::timerfd::TimerFd;
+
+#[cfg(feature = "no_timerfd")]
+use crate::timer_heap::{TimerEntry, TimerHeap};
+
 use libc;
 use nix::sys::epoll::EpollFlags;
 use nix::sys::epoll::*;
 use nix::sys::eventfd::{eventfd, EfdFlags};
-use nix_err_to_io_err;
-use notification::Notification;
 use std::io::{Error, ErrorKind, Result};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::slice;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use user_event::UserEvent;
-
-#[cfg(feature = "no_timerfd")]
-use timer_heap::{TimerEntry, TimerHeap};
 
 static EPOLL_EVENT_SIZE: usize = 1024;
 

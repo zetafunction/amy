@@ -1,4 +1,4 @@
-use event::Event;
+use crate::event::Event;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Notification {

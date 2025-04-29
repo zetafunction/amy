@@ -1,10 +1,10 @@
 use std::io::Result;
 
-use notification::Notification;
-use registrar::Registrar;
+use crate::notification::Notification;
+use crate::registrar::Registrar;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use epoll::KernelPoller;
+use crate::epoll::KernelPoller;
 
 #[cfg(any(
     target_os = "dragonfly",
@@ -14,7 +14,7 @@ use epoll::KernelPoller;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-pub use kqueue::KernelPoller;
+use crate::kqueue::KernelPoller;
 
 /// A Poller is an abstraction around a kernel I/O poller. Kernel pollers are platform specific.
 ///

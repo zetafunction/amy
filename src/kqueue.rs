@@ -1,8 +1,10 @@
-use event::Event;
+use crate::event::Event;
+use crate::nix_err_to_io_err;
+use crate::notification::Notification;
+use crate::user_event::UserEvent;
+
 use libc::{intptr_t, uintptr_t};
 use nix::sys::event::{ev_set, kevent, kqueue, EventFilter, EventFlag, FilterFlag, KEvent};
-use nix_err_to_io_err;
-use notification::Notification;
 use std::collections::HashMap;
 use std::io::Result;
 use std::os::unix::io::AsRawFd;
@@ -10,7 +12,6 @@ use std::os::unix::io::RawFd;
 use std::slice;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use user_event::UserEvent;
 
 type UserData = intptr_t;
 

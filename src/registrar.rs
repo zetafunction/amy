@@ -1,11 +1,12 @@
-use channel::{channel, sync_channel, Receiver, Sender, SyncSender};
-use event::Event;
+use crate::channel::{channel, sync_channel, Receiver, Sender, SyncSender};
+use crate::event::Event;
+
 use std::fmt::Debug;
 use std::io::Result;
 use std::os::unix::io::AsRawFd;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use epoll::KernelRegistrar;
+use crate::epoll::KernelRegistrar;
 
 #[cfg(any(
     target_os = "dragonfly",
@@ -15,7 +16,7 @@ use epoll::KernelRegistrar;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-pub use kqueue::KernelRegistrar;
+use crate::kqueue::KernelRegistrar;
 
 /// An abstraction for registering file descriptors with a kernel poller
 ///

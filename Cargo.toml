@@ -6,6 +6,7 @@ description = "Polling and Registration abstractions around kqueue and epoll for
 repository = "https://github.com/andrewjstone/amy"
 keywords = ["async", "epoll", "kqueue", "eventloop", "timer"]
 license = "Apache-2.0"
+edition = "2024"
 
 [features]
 # On linux, don't use timerfd. Instead store timers in a binary heap and utilize the epoll timeout.

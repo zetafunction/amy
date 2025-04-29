@@ -20,7 +20,7 @@ mod ffi {
         pub it_value: timespec,
     }
 
-    extern "C" {
+    unsafe extern "C" {
         pub fn timerfd_create(clockid: c_int, flags: c_int) -> c_int;
         pub fn timerfd_settime(
             fd: c_int,

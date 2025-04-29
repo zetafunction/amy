@@ -1,10 +1,11 @@
 use std::io;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc};
-use user_event::UserEvent;
+
+use crate::user_event::UserEvent;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use epoll::KernelRegistrar;
+use crate::epoll::KernelRegistrar;
 
 #[cfg(any(
     target_os = "dragonfly",
@@ -14,7 +15,7 @@ use epoll::KernelRegistrar;
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-pub use kqueue::KernelRegistrar;
+use crate::kqueue::KernelRegistrar;
 
 pub fn channel<T>(registrar: &mut KernelRegistrar) -> io::Result<(Sender<T>, Receiver<T>)> {
     let (tx, rx) = mpsc::channel();
