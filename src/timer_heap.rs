@@ -1,19 +1,19 @@
-use std::collections::BinaryHeap;
-use std::cmp::{Ordering, Ord, PartialOrd, PartialEq};
-use std::time::{Instant, Duration};
 use event::Event;
 use notification::Notification;
+use std::cmp::{Ord, Ordering, PartialEq, PartialOrd};
+use std::collections::BinaryHeap;
+use std::time::{Duration, Instant};
 
 /// Store timers in a binary heap. Keep them sorted by which timer is going to expire first.
 pub struct TimerHeap {
-    timers: BinaryHeap<TimerEntry>
+    timers: BinaryHeap<TimerEntry>,
 }
 
 impl TimerHeap {
     /// Create a new TimerHeap
     pub fn new() -> TimerHeap {
         TimerHeap {
-            timers: BinaryHeap::new()
+            timers: BinaryHeap::new(),
         }
     }
 
@@ -65,7 +65,7 @@ impl TimerHeap {
             let nanos = duration.subsec_nanos() as u64;
             // TODO: This can almost certainly be done faster
             let subsec_ms = nanos / 1000000;
-            let mut remaining = duration.as_secs()*1000 + subsec_ms;
+            let mut remaining = duration.as_secs() * 1000 + subsec_ms;
             if subsec_ms * 1000000 < nanos {
                 remaining += 1;
             }
@@ -99,7 +99,10 @@ impl TimerHeap {
         let mut expired = Vec::new();
         while let Some(mut popped) = self.timers.pop() {
             if popped.expires_at <= now {
-                expired.push(Notification {id: popped.id, event: Event::Read});
+                expired.push(Notification {
+                    id: popped.id,
+                    event: Event::Read,
+                });
                 if popped.recurring {
                     // We use the expired_at time so we don't keep skewing later and later
                     // by adding the duration to the current time.
@@ -120,7 +123,7 @@ pub struct TimerEntry {
     recurring: bool,
     duration: Duration,
     expires_at: Instant,
-    id: usize
+    id: usize,
 }
 
 impl TimerEntry {
@@ -130,7 +133,7 @@ impl TimerEntry {
             recurring: recurring,
             duration: duration,
             expires_at: Instant::now() + duration,
-            id: id
+            id: id,
         }
     }
 }
@@ -162,8 +165,8 @@ impl PartialEq for TimerEntry {
 
 #[cfg(test)]
 mod tests {
-    use super::{TimerHeap, TimerEntry};
-    use std::time::{Instant, Duration};
+    use super::{TimerEntry, TimerHeap};
+    use std::time::{Duration, Instant};
 
     #[test]
     fn time_remaining() {
@@ -174,13 +177,15 @@ mod tests {
             id: 1,
             recurring: false,
             duration: duration,
-            expires_at: now + duration
+            expires_at: now + duration,
         };
         heap.insert(entry);
         assert_matches!(heap._time_remaining(now), Some(500));
         assert_matches!(heap._time_remaining(now + duration), Some(0));
-        assert_matches!(heap._time_remaining(now + duration + Duration::from_millis(100)),
-                        Some(0));
+        assert_matches!(
+            heap._time_remaining(now + duration + Duration::from_millis(100)),
+            Some(0)
+        );
         assert_matches!(heap.remove(2), None);
         let entry = heap.remove(1).unwrap();
         assert_eq!(entry.id, 1);
@@ -196,7 +201,7 @@ mod tests {
             id: 1,
             recurring: false,
             duration: duration,
-            expires_at: now + duration
+            expires_at: now + duration,
         };
         heap.insert(entry);
         assert_eq!(heap._expired(now), vec![]);
@@ -215,14 +220,17 @@ mod tests {
             id: 1,
             recurring: true,
             duration: duration,
-            expires_at: now + duration
+            expires_at: now + duration,
         };
         heap.insert(entry);
         assert_eq!(heap._expired(now), vec![]);
         let v = heap._expired(now + duration);
         assert_eq!(v.len(), 1);
         assert_eq!(heap.len(), 1);
-        assert_eq!(heap._expired(now + duration + Duration::from_millis(1)), vec![]);
+        assert_eq!(
+            heap._expired(now + duration + Duration::from_millis(1)),
+            vec![]
+        );
         let v = heap._expired(now + duration + duration);
         assert_eq!(v.len(), 1);
         assert_eq!(heap.len(), 1);

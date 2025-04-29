@@ -1,15 +1,21 @@
-use std::os::unix::io::AsRawFd;
-use std::io::Result;
-use std::fmt::Debug;
+use channel::{channel, sync_channel, Receiver, Sender, SyncSender};
 use event::Event;
-use channel::{channel, sync_channel, Sender, SyncSender, Receiver};
+use std::fmt::Debug;
+use std::io::Result;
+use std::os::unix::io::AsRawFd;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use epoll::KernelRegistrar;
 
-#[cfg(any(target_os = "bitrig", target_os = "dragonfly",
-          target_os = "freebsd", target_os = "ios", target_os = "macos",
-          target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "bitrig",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "ios",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 pub use kqueue::KernelRegistrar;
 
 /// An abstraction for registering file descriptors with a kernel poller
@@ -19,16 +25,14 @@ pub use kqueue::KernelRegistrar;
 /// a call to Poller::get_registrar(&self), and not created on it's own.
 #[derive(Debug, Clone)]
 pub struct Registrar {
-    inner: KernelRegistrar
+    inner: KernelRegistrar,
 }
 
 impl Registrar {
     /// This method is public only so it can be used directly by the Poller. Do not Use it.
     #[doc(hidden)]
     pub fn new(inner: KernelRegistrar) -> Registrar {
-        Registrar {
-            inner: inner
-        }
+        Registrar { inner: inner }
     }
 
     /// Register a socket for a given event type, with a Poller and return it's unique ID

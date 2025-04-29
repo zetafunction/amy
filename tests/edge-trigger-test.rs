@@ -1,16 +1,12 @@
 /// Ensure all sockets operate on edge trigger mode.
-
 extern crate amy;
 
-use std::net::{TcpListener, TcpStream};
-use std::thread;
-use std::str;
 use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::str;
+use std::thread;
 
-use amy::{
-    Poller,
-    Event,
-};
+use amy::{Event, Poller};
 
 const IP: &'static str = "127.0.0.1:10008";
 
@@ -18,7 +14,6 @@ const IP: &'static str = "127.0.0.1:10008";
 /// triggered system, write events would come on every poll.
 #[test]
 fn edge_trigger() {
-
     // Spawn a listening thread and accept one connection
     thread::spawn(|| {
         let listener = TcpListener::bind(IP).unwrap();
@@ -32,10 +27,10 @@ fn edge_trigger() {
     // Loop until we connect because the listener needs to start first
     let mut sock;
     loop {
-      if let Ok(s) = TcpStream::connect(IP) {
-          sock = s;
-          break;
-      }
+        if let Ok(s) = TcpStream::connect(IP) {
+            sock = s;
+            break;
+        }
     }
     sock.set_nonblocking(true).unwrap();
 

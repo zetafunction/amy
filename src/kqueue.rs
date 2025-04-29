@@ -1,16 +1,16 @@
-use std::os::unix::io::RawFd;
-use std::collections::HashMap;
-use std::slice;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::os::unix::io::AsRawFd;
-use nix::sys::event::{ev_set, kqueue, kevent, KEvent, EventFilter, EventFlag, FilterFlag};
-use libc::{uintptr_t, intptr_t};
-use std::io::Result;
 use event::Event;
-use notification::Notification;
-use user_event::UserEvent;
+use libc::{intptr_t, uintptr_t};
+use nix::sys::event::{ev_set, kevent, kqueue, EventFilter, EventFlag, FilterFlag, KEvent};
 use nix_err_to_io_err;
+use notification::Notification;
+use std::collections::HashMap;
+use std::io::Result;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::RawFd;
+use std::slice;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use user_event::UserEvent;
 
 type UserData = intptr_t;
 
@@ -20,7 +20,7 @@ pub struct KernelPoller {
     kqueue: RawFd,
     registrar: KernelRegistrar,
     eventlist: Vec<KEvent>,
-    notifications: HashMap<RawFd, Notification>
+    notifications: HashMap<RawFd, Notification>,
 }
 
 impl KernelPoller {
@@ -31,7 +31,7 @@ impl KernelPoller {
             kqueue: kq,
             registrar: KernelRegistrar::new(kq, registrations),
             eventlist: Vec::with_capacity(KQUEUE_EVENT_SIZE),
-            notifications: HashMap::with_capacity(KQUEUE_EVENT_SIZE)
+            notifications: HashMap::with_capacity(KQUEUE_EVENT_SIZE),
         })
     }
 
@@ -46,7 +46,6 @@ impl KernelPoller {
     //  and remove it if so. We do this removal to prevent aliasing a pointer to the same
     // registration structure.
     pub fn wait(&mut self, timeout_ms: usize) -> Result<Vec<Notification>> {
-
         // Create a buffer to read events into
         let dst = unsafe {
             slice::from_raw_parts_mut(self.eventlist.as_mut_ptr(), self.eventlist.capacity())
@@ -55,7 +54,9 @@ impl KernelPoller {
         let count = kevent(self.kqueue, &[], dst, timeout_ms).map_err(nix_err_to_io_err)?;
 
         // Set the length of the vector to the number of events that was returned by kevent
-        unsafe { self.eventlist.set_len(count); }
+        unsafe {
+            self.eventlist.set_len(count);
+        }
 
         self.coalesce_events();
         Ok(self.notifications.drain().map(|(_, v)| v).collect())
@@ -67,11 +68,13 @@ impl KernelPoller {
             let event = event_from_filter(e.filter());
             let new_notification = Notification {
                 id: e.udata() as usize,
-                event: event.clone()
+                event: event.clone(),
             };
 
-            let mut notification = self.notifications.entry(e.ident() as RawFd)
-                                                     .or_insert(new_notification);
+            let mut notification = self
+                .notifications
+                .entry(e.ident() as RawFd)
+                .or_insert(new_notification);
             if notification.event != event {
                 notification.event = Event::Both
             }
@@ -79,11 +82,10 @@ impl KernelPoller {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct KernelRegistrar {
     kqueue: RawFd,
-    total_registrations: Arc<AtomicUsize>
+    total_registrations: Arc<AtomicUsize>,
 }
 
 impl KernelRegistrar {
@@ -92,7 +94,7 @@ impl KernelRegistrar {
     fn new(kq: RawFd, registrations: Arc<AtomicUsize>) -> KernelRegistrar {
         KernelRegistrar {
             kqueue: kq,
-            total_registrations: registrations
+            total_registrations: registrations,
         }
     }
 
@@ -100,14 +102,14 @@ impl KernelRegistrar {
         let sock_fd = sock.as_raw_fd();
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
         let changes = make_changelist(sock_fd, event, id as UserData);
-        kevent(self.kqueue, &changes, &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &changes, &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(id)
     }
 
     pub fn reregister<T: AsRawFd>(&self, id: usize, sock: &T, event: Event) -> Result<()> {
         let sock_fd = sock.as_raw_fd();
         let changes = make_changelist(sock_fd, event, id as UserData);
-        kevent(self.kqueue, &changes, &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &changes, &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
@@ -120,36 +122,39 @@ impl KernelRegistrar {
         // Just ignore errors because, one of the events may not be present, but the deregister
         // signature ignores that fact. At this point, ownership of the socket is taken so it's
         // irrelevant anyway.
-        let _ = kevent(self.kqueue, &changes, &mut[], 0);
+        let _ = kevent(self.kqueue, &changes, &mut [], 0);
         Ok(())
     }
 
     pub fn register_user_event(&mut self) -> Result<UserEvent> {
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
         let changes = vec![make_user_event(id)];
-        kevent(self.kqueue, &changes, &mut[], 0).map_err(nix_err_to_io_err)?;
-        Ok(UserEvent {id: id, registrar: self.clone()})
+        kevent(self.kqueue, &changes, &mut [], 0).map_err(nix_err_to_io_err)?;
+        Ok(UserEvent {
+            id: id,
+            registrar: self.clone(),
+        })
     }
 
     pub fn trigger_user_event(&self, event: &UserEvent) -> Result<()> {
         let mut e = make_user_event(event.get_id());
         set_flags(&mut e, EventFlag::EV_ENABLE);
         set_fflags(&mut e, FilterFlag::NOTE_TRIGGER);
-        kevent(self.kqueue, &vec![e], &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &vec![e], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
     pub fn clear_user_event(&self, event: &UserEvent) -> Result<()> {
         let mut user_event = make_user_event(event.get_id());
         set_flags(&mut user_event, EventFlag::EV_DISABLE);
-        kevent(self.kqueue, &vec![user_event], &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &vec![user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
     pub fn deregister_user_event(&self, event_id: usize) -> Result<()> {
         let mut user_event = make_user_event(event_id);
         set_flags(&mut user_event, EventFlag::EV_DELETE);
-        kevent(self.kqueue, &vec![user_event], &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &vec![user_event], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
@@ -164,23 +169,24 @@ impl KernelRegistrar {
     pub fn cancel_timeout(&self, timer_id: usize) -> Result<()> {
         let mut e = make_timer(timer_id, 0, false);
         set_flags(&mut e, EventFlag::EV_DELETE);
-        kevent(self.kqueue, &vec![e], &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &vec![e], &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(())
     }
 
     fn set_timer(&self, timeout: usize, recurring: bool) -> Result<usize> {
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
         let changes = vec![make_timer(id, timeout, recurring)];
-        kevent(self.kqueue, &changes, &mut[], 0).map_err(nix_err_to_io_err)?;
+        kevent(self.kqueue, &changes, &mut [], 0).map_err(nix_err_to_io_err)?;
         Ok(id)
     }
 }
 
 fn event_from_filter(filter: EventFilter) -> Event {
     // TODO: Change Event to allow returning TIMER events instead of marking them READ
-    if filter == EventFilter::EVFILT_READ ||
-       filter == EventFilter::EVFILT_TIMER ||
-       filter == EventFilter::EVFILT_USER {
+    if filter == EventFilter::EVFILT_READ
+        || filter == EventFilter::EVFILT_TIMER
+        || filter == EventFilter::EVFILT_USER
+    {
         Event::Read
     } else {
         Event::Write
@@ -197,7 +203,7 @@ fn make_changelist(sock_fd: RawFd, event: Event, user_data: UserData) -> Vec<KEv
         EventFlag::EV_ADD | EventFlag::EV_CLEAR,
         FilterFlag::empty(),
         0,
-        user_data
+        user_data,
     );
 
     match event {
@@ -205,8 +211,18 @@ fn make_changelist(sock_fd: RawFd, event: Event, user_data: UserData) -> Vec<KEv
         Event::Write => {
             set_filter(&mut ev, EventFilter::EVFILT_WRITE);
             vec![ev]
-        },
-        Event::Both => vec![ev, KEvent::new(ev.ident(), EventFilter::EVFILT_WRITE, ev.flags(), ev.fflags(), ev.data(), ev.udata())]
+        }
+        Event::Both => vec![
+            ev,
+            KEvent::new(
+                ev.ident(),
+                EventFilter::EVFILT_WRITE,
+                ev.flags(),
+                ev.fflags(),
+                ev.data(),
+                ev.udata(),
+            ),
+        ],
     }
 }
 
@@ -217,7 +233,7 @@ fn make_user_event(id: usize) -> KEvent {
         EventFlag::EV_ADD | EventFlag::EV_CLEAR | EventFlag::EV_ENABLE,
         FilterFlag::empty(),
         0,
-        id as UserData
+        id as UserData,
     )
 }
 
@@ -256,7 +272,7 @@ fn make_timer(id: usize, timeout: usize, recurring: bool) -> KEvent {
         flags,
         FilterFlag::empty(), // timeouts are in ms by default
         timeout as intptr_t,
-        id as UserData
+        id as UserData,
     );
     ev
 }

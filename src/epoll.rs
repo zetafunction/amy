@@ -1,37 +1,37 @@
 #[cfg(not(feature = "no_timerfd"))]
+use std::collections::HashMap;
+#[cfg(not(feature = "no_timerfd"))]
 use std::os::unix::io::IntoRawFd;
 #[cfg(not(feature = "no_timerfd"))]
 use timer::Timer;
 #[cfg(not(feature = "no_timerfd"))]
 use timerfd::TimerFd;
-#[cfg(not(feature = "no_timerfd"))]
-use std::collections::HashMap;
 
-use std::os::unix::io::{RawFd, AsRawFd};
-use std::slice;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use nix::sys::epoll::*;
-use nix::sys::epoll::EpollFlags;
-use nix::sys::eventfd::{eventfd, EfdFlags};
-use libc;
-use std::io::{Result, Error, ErrorKind};
+use channel::{channel, Receiver, Sender};
 use event::Event;
-use notification::Notification;
-use user_event::UserEvent;
-use channel::{channel, Sender, Receiver};
+use libc;
+use nix::sys::epoll::EpollFlags;
+use nix::sys::epoll::*;
+use nix::sys::eventfd::{eventfd, EfdFlags};
 use nix_err_to_io_err;
+use notification::Notification;
+use std::io::{Error, ErrorKind, Result};
+use std::os::unix::io::{AsRawFd, RawFd};
+use std::slice;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use user_event::UserEvent;
 
 #[cfg(feature = "no_timerfd")]
-use timer_heap::{TimerHeap, TimerEntry};
+use timer_heap::{TimerEntry, TimerHeap};
 
 static EPOLL_EVENT_SIZE: usize = 1024;
 
 #[derive(Debug, Clone)]
 pub enum TimerMsg {
-    StartTimer {id: usize, timeout_ms: usize},
-    StartInterval {id: usize, timeout_ms: usize},
-    Cancel {id: usize}
+    StartTimer { id: usize, timeout_ms: usize },
+    StartInterval { id: usize, timeout_ms: usize },
+    Cancel { id: usize },
 }
 
 pub struct KernelPoller {
@@ -44,11 +44,10 @@ pub struct KernelPoller {
     timers: HashMap<usize, Timer>,
 
     #[cfg(feature = "no_timerfd")]
-    timers: TimerHeap
+    timers: TimerHeap,
 }
 
 impl KernelPoller {
-
     #[cfg(not(feature = "no_timerfd"))]
     pub fn new() -> Result<KernelPoller> {
         let epfd = epoll_create().map_err(nix_err_to_io_err)?;
@@ -61,7 +60,7 @@ impl KernelPoller {
             registrar: registrar,
             events: Vec::with_capacity(EPOLL_EVENT_SIZE),
             timer_rx: rx,
-            timers: HashMap::new()
+            timers: HashMap::new(),
         })
     }
 
@@ -77,7 +76,7 @@ impl KernelPoller {
             registrar: registrar,
             events: Vec::with_capacity(EPOLL_EVENT_SIZE),
             timer_rx: rx,
-            timers: TimerHeap::new()
+            timers: TimerHeap::new(),
         })
     }
 
@@ -89,20 +88,20 @@ impl KernelPoller {
     /// registered with epoll_ctl which is extracted from the data member returned from epoll_wait.
     #[cfg(not(feature = "no_timerfd"))]
     pub fn wait(&mut self, timeout_ms: usize) -> Result<Vec<Notification>> {
-
         // We may have gotten a timer registration while awake, don't bother sleeping just to
         // immediately wake up again.
         self.receive_timer_messages()?;
 
         // Create a buffer to read events into
-        let dst = unsafe {
-            slice::from_raw_parts_mut(self.events.as_mut_ptr(), self.events.capacity())
-        };
+        let dst =
+            unsafe { slice::from_raw_parts_mut(self.events.as_mut_ptr(), self.events.capacity()) };
 
         let count = epoll_wait(self.epfd, dst, timeout_ms as isize).map_err(nix_err_to_io_err)?;
 
         // Set the length of the vector to what was filled in by the call to epoll_wait
-        unsafe { self.events.set_len(count); }
+        unsafe {
+            self.events.set_len(count);
+        }
 
         let mut timer_rx_notification = false;
         let mut notifications = Vec::with_capacity(count);
@@ -117,7 +116,7 @@ impl KernelPoller {
                 }
                 notifications.push(Notification {
                     id: id,
-                    event: event_from_flags(e.events())
+                    event: event_from_flags(e.events()),
                 });
             }
         }
@@ -136,15 +135,13 @@ impl KernelPoller {
     /// `timeout_ms`.
     #[cfg(feature = "no_timerfd")]
     pub fn wait(&mut self, timeout_ms: usize) -> Result<Vec<Notification>> {
-
         // We may have gotten a timer registration while awake, don't bother sleeping just to
         // immediately wake up again.
         self.receive_timer_messages();
 
         // Create a buffer to read events into
-        let dst = unsafe {
-            slice::from_raw_parts_mut(self.events.as_mut_ptr(), self.events.capacity())
-        };
+        let dst =
+            unsafe { slice::from_raw_parts_mut(self.events.as_mut_ptr(), self.events.capacity()) };
 
         let expired = self.timers.expired();
         if !expired.is_empty() {
@@ -155,7 +152,9 @@ impl KernelPoller {
         let count = epoll_wait(self.epfd, dst, timeout as isize).map_err(nix_err_to_io_err)?;
 
         // Set the length of the vector to what was filled in by the call to epoll_wait
-        unsafe { self.events.set_len(count); }
+        unsafe {
+            self.events.set_len(count);
+        }
 
         let mut timer_rx_notification = false;
         let mut notifications = Vec::with_capacity(count);
@@ -166,7 +165,7 @@ impl KernelPoller {
             } else {
                 notifications.push(Notification {
                     id: id,
-                    event: event_from_flags(e.events())
+                    event: event_from_flags(e.events()),
                 });
             }
         }
@@ -184,15 +183,15 @@ impl KernelPoller {
     fn receive_timer_messages(&mut self) -> Result<()> {
         while let Ok(msg) = self.timer_rx.try_recv() {
             match msg {
-                TimerMsg::StartTimer {id, timeout_ms} => {
+                TimerMsg::StartTimer { id, timeout_ms } => {
                     let timer = self.set_timer(id, timeout_ms, false)?;
                     self.timers.insert(id, timer);
-                },
-                TimerMsg::StartInterval {id, timeout_ms} => {
+                }
+                TimerMsg::StartInterval { id, timeout_ms } => {
                     let timer = self.set_timer(id, timeout_ms, true)?;
                     self.timers.insert(id, timer);
-                },
-                TimerMsg::Cancel {id} => {
+                }
+                TimerMsg::Cancel { id } => {
                     // Removing the timer from the map will cause it to be dropped, which closes its fd
                     // and subsequently removes it from epoll.
                     self.timers.remove(&id);
@@ -206,15 +205,15 @@ impl KernelPoller {
     fn receive_timer_messages(&mut self) {
         while let Ok(msg) = self.timer_rx.try_recv() {
             match msg {
-                TimerMsg::StartTimer {id, timeout_ms} => {
+                TimerMsg::StartTimer { id, timeout_ms } => {
                     let timer = TimerEntry::new(id, timeout_ms as u64, false);
                     self.timers.insert(timer);
-                },
-                TimerMsg::StartInterval {id, timeout_ms} => {
+                }
+                TimerMsg::StartInterval { id, timeout_ms } => {
                     let timer = TimerEntry::new(id, timeout_ms as u64, true);
                     self.timers.insert(timer);
-                },
-                TimerMsg::Cancel {id} => {
+                }
+                TimerMsg::Cancel { id } => {
                     // Removing the timer from the map will cause it to be dropped, which closes its fd
                     // and subsequently removes it from epoll.
                     self.timers.remove(id);
@@ -237,7 +236,7 @@ impl KernelPoller {
                 self.timers.remove(&id);
             }
         }
-        return Ok(())
+        return Ok(());
     }
 
     #[cfg(not(feature = "no_timerfd"))]
@@ -246,7 +245,10 @@ impl KernelPoller {
         let mut info = EpollEvent::new(flags_from_event(Event::Read), id as u64);
         let fd = timer_fd.into_raw_fd();
         match epoll_ctl(self.epfd, EpollOp::EpollCtlAdd, fd, &mut info) {
-            Ok(_) => Ok(Timer {fd: fd, interval: recurring}),
+            Ok(_) => Ok(Timer {
+                fd: fd,
+                interval: recurring,
+            }),
             Err(e) => {
                 let _ = unsafe { libc::close(fd) };
                 Err(nix_err_to_io_err(e))
@@ -265,7 +267,7 @@ pub struct KernelRegistrar {
     // Since initializing a channel requires an existing KernelRegistrar, we must first
     // create the channel with a registrar that has a `None` value for timer_tx. This is fine, as
     // channels have no need to create timers.
-    timer_tx: Option<Sender<TimerMsg>>
+    timer_tx: Option<Sender<TimerMsg>>,
 }
 
 impl KernelRegistrar {
@@ -273,7 +275,7 @@ impl KernelRegistrar {
         KernelRegistrar {
             epfd: epfd,
             total_registrations: registrations,
-            timer_tx: None
+            timer_tx: None,
         }
     }
 
@@ -282,29 +284,37 @@ impl KernelRegistrar {
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
         let mut info = EpollEvent::new(flags_from_event(event), id as u64);
 
-        epoll_ctl(self.epfd, EpollOp::EpollCtlAdd, sock_fd, &mut info).map_err(nix_err_to_io_err)?;
+        epoll_ctl(self.epfd, EpollOp::EpollCtlAdd, sock_fd, &mut info)
+            .map_err(nix_err_to_io_err)?;
         Ok(id)
     }
 
     pub fn reregister<T: AsRawFd>(&self, id: usize, sock: &T, event: Event) -> Result<()> {
         let sock_fd = sock.as_raw_fd();
         let mut info = EpollEvent::new(flags_from_event(event), id as u64);
-        Ok(epoll_ctl(self.epfd, EpollOp::EpollCtlMod, sock_fd, &mut info).map_err(nix_err_to_io_err)?)
+        Ok(
+            epoll_ctl(self.epfd, EpollOp::EpollCtlMod, sock_fd, &mut info)
+                .map_err(nix_err_to_io_err)?,
+        )
     }
 
     pub fn deregister<T: AsRawFd>(&self, sock: &T) -> Result<()> {
         // info is unused by epoll on delete operations
         let mut info = EpollEvent::empty();
         let sock_fd = sock.as_raw_fd();
-        Ok(epoll_ctl(self.epfd, EpollOp::EpollCtlDel, sock_fd, &mut info).map_err(nix_err_to_io_err)?)
+        Ok(
+            epoll_ctl(self.epfd, EpollOp::EpollCtlDel, sock_fd, &mut info)
+                .map_err(nix_err_to_io_err)?,
+        )
     }
 
     pub fn register_user_event(&mut self) -> Result<UserEvent> {
-        let fd = eventfd(0, EfdFlags::EFD_CLOEXEC | EfdFlags::EFD_NONBLOCK).map_err(nix_err_to_io_err)?;
+        let fd = eventfd(0, EfdFlags::EFD_CLOEXEC | EfdFlags::EFD_NONBLOCK)
+            .map_err(nix_err_to_io_err)?;
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
         let mut info = EpollEvent::new(flags_from_event(Event::Read), id as u64);
         match epoll_ctl(self.epfd, EpollOp::EpollCtlAdd, fd, &mut info) {
-            Ok(_) => Ok(UserEvent {id: id, fd: fd}),
+            Ok(_) => Ok(UserEvent { id: id, fd: fd }),
             Err(e) => {
                 let _ = unsafe { libc::close(fd) };
                 Err(nix_err_to_io_err(e))
@@ -318,20 +328,35 @@ impl KernelRegistrar {
 
     pub fn set_timeout(&self, timeout: usize) -> Result<usize> {
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
-        self.timer_tx.as_ref().unwrap().send(TimerMsg::StartTimer {id: id, timeout_ms: timeout})
+        self.timer_tx
+            .as_ref()
+            .unwrap()
+            .send(TimerMsg::StartTimer {
+                id: id,
+                timeout_ms: timeout,
+            })
             .map_err(|_| Error::new(ErrorKind::BrokenPipe, "Channel receiver dropped"))?;
         Ok(id)
     }
 
     pub fn set_interval(&self, timeout: usize) -> Result<usize> {
         let id = self.total_registrations.fetch_add(1, Ordering::SeqCst);
-        self.timer_tx.as_ref().unwrap().send(TimerMsg::StartInterval {id: id, timeout_ms: timeout})
+        self.timer_tx
+            .as_ref()
+            .unwrap()
+            .send(TimerMsg::StartInterval {
+                id: id,
+                timeout_ms: timeout,
+            })
             .map_err(|_| Error::new(ErrorKind::BrokenPipe, "Channel receiver dropped"))?;
         Ok(id)
     }
 
     pub fn cancel_timeout(&self, timer_id: usize) -> Result<()> {
-        self.timer_tx.as_ref().unwrap().send(TimerMsg::Cancel {id: timer_id})
+        self.timer_tx
+            .as_ref()
+            .unwrap()
+            .send(TimerMsg::Cancel { id: timer_id })
             .map_err(|_| Error::new(ErrorKind::BrokenPipe, "Channel receiver dropped"))?;
         Ok(())
     }
@@ -352,10 +377,10 @@ fn flags_from_event(event: Event) -> EpollFlags {
     match event {
         Event::Read => {
             flags.insert(EpollFlags::EPOLLIN);
-        },
+        }
         Event::Write => {
             flags.insert(EpollFlags::EPOLLOUT);
-        },
+        }
         Event::Both => {
             flags.insert(EpollFlags::EPOLLIN);
             flags.insert(EpollFlags::EPOLLOUT);

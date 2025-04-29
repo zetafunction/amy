@@ -1,14 +1,20 @@
 use std::io::Result;
 
-use registrar::Registrar;
 use notification::Notification;
+use registrar::Registrar;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use epoll::KernelPoller;
 
-#[cfg(any(target_os = "bitrig", target_os = "dragonfly",
-          target_os = "freebsd", target_os = "ios", target_os = "macos",
-          target_os = "netbsd", target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "bitrig",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "ios",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 pub use kqueue::KernelPoller;
 
 /// A Poller is an abstraction around a kernel I/O poller. Kernel pollers are platform specific.
@@ -18,7 +24,7 @@ pub use kqueue::KernelPoller;
 /// descriptors.
 pub struct Poller {
     registrar: Registrar,
-    inner: KernelPoller
+    inner: KernelPoller,
 }
 
 impl Poller {
@@ -26,7 +32,7 @@ impl Poller {
         let inner = KernelPoller::new()?;
         Ok(Poller {
             registrar: Registrar::new(inner.get_registrar()),
-            inner: inner
+            inner: inner,
         })
     }
 

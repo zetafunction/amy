@@ -1,13 +1,13 @@
-use std::os::unix::io::{RawFd, AsRawFd};
 use std::io::Result;
+use std::os::unix::io::{AsRawFd, RawFd};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::io::Error;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use std::mem;
-#[cfg(any(target_os = "linux", target_os = "android"))]
 use libc;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use std::mem;
 
 /// An opaque handle to a user level event.
 ///
@@ -20,7 +20,7 @@ pub struct UserEvent {
     pub id: usize,
 
     #[doc(hidden)]
-    pub fd: RawFd
+    pub fd: RawFd,
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -84,7 +84,7 @@ pub struct UserEvent {
     pub id: usize,
 
     #[doc(hidden)]
-    pub registrar: KernelRegistrar
+    pub registrar: KernelRegistrar,
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]

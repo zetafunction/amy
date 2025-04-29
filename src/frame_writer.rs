@@ -1,5 +1,5 @@
-use std::io::{self, Write};
 use std::collections::LinkedList as List;
+use std::io::{self, Write};
 use std::mem;
 
 /// Abstraction for writing frame buffered data to non-blocking sockets.
@@ -11,7 +11,7 @@ pub struct FrameWriter {
     is_writable: bool,
     current: Vec<u8>,
     written: usize,
-    pending: List<Vec<u8>>
+    pending: List<Vec<u8>>,
 }
 
 impl FrameWriter {
@@ -21,7 +21,7 @@ impl FrameWriter {
             is_writable: true,
             current: Vec::new(),
             written: 0,
-            pending: List::new()
+            pending: List::new(),
         }
     }
 
@@ -78,7 +78,7 @@ impl FrameWriter {
                 Ok(0) => {
                     self.is_writable = false;
                     return Ok(false);
-                },
+                }
                 Ok(n) => {
                     self.written += n;
                     if self.written == self.current.len() {
@@ -88,14 +88,14 @@ impl FrameWriter {
                                 self.current = Vec::new();
                                 self.is_empty = true;
                                 return Ok(true);
-                            },
+                            }
                             Some(data) => {
                                 self.written = 0;
                                 self.current = data;
                             }
                         }
                     }
-                },
+                }
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
                         self.is_writable = false;
@@ -106,7 +106,6 @@ impl FrameWriter {
             }
         }
     }
-
 }
 
 /// Convert a u32 in native order to a 4 byte vec in big endian
@@ -119,8 +118,8 @@ pub fn u32_to_vec(n: u32) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use super::FrameWriter;
+    use std::io::Cursor;
 
     #[test]
     fn call_write_on_empty_frame_writer() {
@@ -141,7 +140,10 @@ mod tests {
         let frame = vec![0; 10];
         assert_eq!(true, frame_writer.write(&mut writer, Some(frame)).unwrap());
         assert_eq!(true, frame_writer.is_empty);
-        assert_eq!(false, frame_writer.write(&mut writer, Some(vec![0;1])).unwrap());
+        assert_eq!(
+            false,
+            frame_writer.write(&mut writer, Some(vec![0; 1])).unwrap()
+        );
     }
 
     #[test]
@@ -164,12 +166,13 @@ mod tests {
         writer.set_position(0);
         assert_eq!(true, frame_writer.is_writable);
         // Write the last byte remaining, plus a new 9 byte frame and it's 4 byte header.
-        assert_eq!(true, frame_writer.write(&mut writer, Some(vec![0;9])).unwrap());
+        assert_eq!(
+            true,
+            frame_writer.write(&mut writer, Some(vec![0; 9])).unwrap()
+        );
         // Ensure that the frame writer was reset because there is no more data to write
         assert_eq!(true, frame_writer.is_empty);
         assert_eq!(0, frame_writer.written);
         assert_eq!(0, frame_writer.current.len());
     }
 }
-
-

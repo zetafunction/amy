@@ -1,8 +1,7 @@
 /// Test the timer interface
-
 extern crate amy;
 
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use amy::Poller;
 
@@ -39,7 +38,7 @@ fn test_set_interval() {
         let elapsed = now.elapsed();
         assert_eq!(1, notifications.len());
         assert_eq!(timer_id, notifications[0].id);
-        assert!(elapsed > Duration::from_millis(i*TIMEOUT as u64));
+        assert!(elapsed > Duration::from_millis(i * TIMEOUT as u64));
         assert!(elapsed < Duration::from_millis(POLL_TIMEOUT as u64));
     }
     assert!(registrar.cancel_timeout(timer_id).is_ok());

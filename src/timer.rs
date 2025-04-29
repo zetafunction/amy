@@ -1,8 +1,8 @@
-use std::os::unix::io::{RawFd, AsRawFd};
+use std::os::unix::io::{AsRawFd, RawFd};
 
+use libc;
 use std::io::{Error, Result};
 use std::mem;
-use libc;
 
 /// An opaque handle to a kernel timer instance.
 ///
@@ -15,9 +15,8 @@ pub struct Timer {
     pub fd: RawFd,
 
     #[doc(hidden)]
-    pub interval: bool
+    pub interval: bool,
 }
-
 
 impl Timer {
     /// Re-arm a recurring timer.

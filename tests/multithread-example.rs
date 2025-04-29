@@ -6,22 +6,15 @@
 /// returns, the event can be sent to a separate thread/thread pool for decoding and state
 /// management. When a new registration is required, that thread or another can simply register
 /// again.
-
 extern crate amy;
 
-use amy::{
-    Poller,
-    Registrar,
-    Event,
-    Notification,
-    LineReader
-};
+use amy::{Event, LineReader, Notification, Poller, Registrar};
 
-use std::net::{TcpListener, TcpStream};
-use std::thread;
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::str;
 use std::io::{ErrorKind, Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::str;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
 
 const IP: &'static str = "127.0.0.1:10002";
 const DATA: &'static str = "Hello, World!\n";
@@ -87,11 +80,12 @@ fn run_client(rx: Receiver<()>) {
 }
 
 /// This thread runs the poller and forwards notifications to a worker thread.
-fn run_poller(mut poller: Poller,
-              worker_tx: Sender<Notification>,
-              rx: Receiver<()>,
-              client_tx: Sender<()>) {
-
+fn run_poller(
+    mut poller: Poller,
+    worker_tx: Sender<Notification>,
+    rx: Receiver<()>,
+    client_tx: Sender<()>,
+) {
     // 1) Wait for a connection, and ensure we get one. We started listening in the worker thread.
     // The client has connected so we only get a single read event. Forward the notification to the
     // worker.
@@ -148,12 +142,13 @@ fn run_poller(mut poller: Poller,
 }
 
 // This thread registers sockets and receives notifications from the poller when they are ready
-fn run_worker(registrar: Registrar,
-              rx: Receiver<Notification>,
-              listener: TcpListener,
-              client_tx: Sender<()>,
-              poller_tx: Sender<()>) {
-
+fn run_worker(
+    registrar: Registrar,
+    rx: Receiver<Notification>,
+    listener: TcpListener,
+    client_tx: Sender<()>,
+    poller_tx: Sender<()>,
+) {
     let listener_id = registrar.register(&listener, Event::Read).unwrap();
     // This is the first registered socket, so it's Id is 1. 0 is used by a channel internal to the poller.
     assert_eq!(1, listener_id);
@@ -175,7 +170,6 @@ fn run_worker(registrar: Registrar,
     if let Err(e) = listener.accept() {
         assert_eq!(ErrorKind::WouldBlock, e.kind());
     }
-
 
     // Signal the client that the the connection notification was received
     // Note this isn't necessary in production, it's just here to make the test deterministic.
@@ -206,7 +200,9 @@ fn run_worker(registrar: Registrar,
     poller_tx.send(()).unwrap();
 
     // Re-Register the socket for writing so we can echo the data back to the client
-    registrar.reregister(socket_id, &socket, Event::Write).unwrap();
+    registrar
+        .reregister(socket_id, &socket, Event::Write)
+        .unwrap();
 
     // 3) The socket was available for writing, and the notification was forwarded from the poller.
     // This worker receives the notification and proceeds to echo back the read data.
